@@ -23,8 +23,8 @@ import util
 # deferred.defer(do_something_expensive, "Hello, world!", 42, c=True)
 logger = logging.getLogger(__name__)
 
-REPORT_PROCESSING_MACHINE = 'http://api.parko.com/sdk/'
-REPORT_PROCESSING_MACHINE_DEV = 'http://dev.parko.com/sdk/'
+REPORT_PROCESSING_MACHINE = 'http://api.xxxx.com/sdk/'
+REPORT_PROCESSING_MACHINE_DEV = 'http://dev.xxxx.com/sdk/'
 #REPORT_PROCESSING_MACHINE = 'http://127.0.0.1:9000/sdk/' # also remove/add wait() at call end
 QUEUE = 'Event-Location-Stream'
 

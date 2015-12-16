@@ -1,0 +1,549 @@
+<!doctype html>
+<html lang="en">
+    <head>
+<!--
+        {% if client %}{{ client.companyName }}{% endif %}
+        {% if user_not_found %}
+            {{ user_not_found }}
+        {% endif %}
+-->
+        <title>Motionize events map</title>
+        <meta http-equiv="content-type" content="text/html; charset=UTF-8" />
+        <meta name="viewport" content="initial-scale=1.0, user-scalable=no" />
+
+        <link href="https://fonts.googleapis.com/css?family=Open+Sans:400italic,700italic,400,600,700" rel="stylesheet" type="text/css">
+        <link href="http://netdna.bootstrapcdn.com/bootstrap/3.0.3/css/bootstrap.min.css" rel="stylesheet">
+        <link href="http://cdnjs.cloudflare.com/ajax/libs/bootstrap-datetimepicker/0.0.11/css/bootstrap-datetimepicker.min.css" rel="stylesheet">
+        <link href="../stylesheets/motionize-marker-communication.css" rel="stylesheet" type="text/css">
+
+        <script type='text/javascript' src='http://maps.google.com/maps/api/js?sensor=false'></script>
+        <script src="http://google-maps-utility-library-v3.googlecode.com/svn/trunk/markerclustererplus/src/markerclusterer.js" type="text/javascript"></script>
+        <script type='text/javascript' src='/_ah/channel/jsapi'></script>
+        <script type='text/javascript' src='https://code.jquery.com/jquery-1.10.2.min.js'></script>
+        <script type='text/javascript' src='http://netdna.bootstrapcdn.com/bootstrap/3.0.3/js/bootstrap.min.js'></script>
+        <script type='text/javascript' src='http://cdnjs.cloudflare.com/ajax/libs/moment.js/2.5.0/moment.min.js'></script>
+        <script type='text/javascript' src='../js/bootstrap-datetimepicker.js'></script>
+
+    </head>
+    <body>
+        <div id="wrapper">
+            <form class="form-horizontal" name="MotionizeMapForm" method="get">
+                <fieldset>
+
+                <!-- Form Name -->
+                <legend>Event Filtering <span id="countedmatches"></span></legend>
+
+                <div class="form-group" style="margin: 0 -20px;">
+                    <div class="well" style="height:102px;">
+                       <div class='col-fullwidth'>
+                            <div class='input-group date' id='datetimepicker_from'>
+                                <input type='text' class='form-control' id='datetimepicker_from_input' />
+                                <span class="input-group-addon"><span class="glyphicon glyphicon-calendar"></span>
+                                </span>
+                            </div>
+                        </div>
+                        <div class='col-fullwidth'>
+                            <div class='input-group date' id='datetimepicker_to'>
+                                <input type='text' class='form-control' id='datetimepicker_to_input' />
+                                <span class="input-group-addon"><span class="glyphicon glyphicon-calendar"></span>
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Multiple Checkboxes -->
+                <div class="form-group">
+                  <label class="col-md-4 control-label">Event type</label>
+                  <div class="col-md-8">
+                    <div class="checkbox">
+                      <label for="eventtype-all">
+                        <input type="checkbox" name="eventtype" id="eventtype-all" value="All" checked>
+                        <strong>All events</strong>
+                      </label>
+                    </div>
+
+                  {% for logReason in logreasons %}
+
+                    <div class="checkbox">
+                      <label for="eventtype-{{ loop.index }}">
+                        <img src="../images/map/motionize-marker-{{ logReason[1]|lower }}" class='vlegend'>
+                        <input type="checkbox" name="eventtype" id="eventtype-{{ loop.index }}" value="{{ logReason[0] }}">
+                        {{ logReason[0]|capitalize }}
+                      </label>
+                    </div>
+
+                  {% endfor %}
+
+                  </div>
+                </div>
+
+                <!-- Multiple Checkboxes (inline) -->
+                <div class="form-group">
+                  <label class="col-md-4 control-label">Accuracy</label>
+                  <div class="col-md-8">
+                    <label class="checkbox-inline" for="accuracy">
+                      <input type="checkbox" name="accuracy" id="accuracy" value="on" checked>
+                      Display on map
+                    </label>
+                  </div>
+                </div>
+
+                <!-- Text input-->
+                <div class="form-group">
+                  <label class="col-md-4 control-label" for="companyname">Company</label>
+                  <div class="col-md-8">
+                      <input id="companyname" name="companyname" type="text" placeholder="Company"{% if client %} value="{{ client.companyName }}" disabled{% endif %} class="form-control input-md">
+                  </div>
+                </div>
+
+                <!-- Prepended checkbox -->
+                <div class="form-group">
+                  <label class="col-md-4 control-label" for="deviceid">Device Id</label>
+                  <div class="col-md-8">
+                    <div class="input-group">
+                      <span class="input-group-addon">     
+                          <input type="checkbox">
+                      </span>
+                      <input id="deviceid" name="deviceid" class="form-control" type="text" placeholder="All devices (default)">
+                    </div>
+                    
+                  </div>
+                </div>
+
+                <!-- Button -->
+                <div class="form-group">
+                  <label class="col-md-4 control-label" for="submit"></label>
+                  <div class="col-md-4">
+                    <button id="submit" name="submit" class="btn btn-info">Show events</button>
+                  </div>
+                </div>
+
+                </fieldset>
+            </form>
+        </div>
+
+        <div id="mapbg"></div>
+
+        <script type="text/javascript">
+            /* visualization interface */
+            var MotionizeMap = (function($){
+
+                //private globals
+                var map = new google.maps.Map(document.getElementById("mapbg"), {
+                    center: new google.maps.LatLng(32.0700, 34.8400),
+                    zoom: 13,
+                    // scrollwheel: false, // zooming with mouse
+                    mapTypeId: 'roadmap',
+                    panControl: true,
+                    minZoom: 3,
+                    panControlOptions: {
+                        position: google.maps.ControlPosition.TOP_RIGHT
+                        },
+                    zoomControl: true,
+                    zoomControlOptions: {
+                        style: google.maps.ZoomControlStyle.LARGE,
+                        position: google.maps.ControlPosition.TOP_RIGHT
+                        }
+                });
+
+                var clustererStyles = {
+                    minimumClusterSize: 3,
+                    maxZoom: 13,
+                    styles: [
+                        {
+                            textColor: '#FFFFFF',
+                            fontFamily: '"Open Sans", sans-serif',
+                            url: '/images/map/motionize-cluster-small.png',
+                            height: 32,
+                            width: 32,
+                            anchorText: [-5, 0]
+                        },
+                        {
+                            textColor: '#FFFFFF',
+                            fontFamily: '"Open Sans", sans-serif',
+                            url: '/images/map/motionize-cluster-medium.png',
+                            height: 42,
+                            width: 42,
+                            anchorText: [-6, 0]
+                        },
+                        {   textColor: '#FFFFFF',
+                            fontFamily: '"Open Sans", sans-serif',
+                            url: '/images/map/motionize-cluster-large.png',
+                            height: 50,
+                            width: 50,
+                            anchorText: [-8, 0]
+                        }
+                    ]
+
+                };
+
+                return {
+
+                    config: {
+                        v: '1.0',
+                        callback: '?',
+                        query_limit: 150,
+                        icons: {
+                            {% for logReason in logreasons %}
+                                '{{ logReason[0] }}': '{{ logReason[1] }}',
+                            {% endfor %}
+                        }
+                    },
+
+
+                    init: function(ext_config){
+
+                        $.extend(this.config, ext_config);
+                        this.initMap();
+                        MotionizeSocket.initSocket(this.config.token);
+
+                    },
+
+
+                    initMap: function() {
+
+                        $.extend(this, {
+
+                            mapcontroller: {
+
+                                markerClusterer: new MarkerClusterer(map,[], clustererStyles),
+                                infoWindow: new google.maps.InfoWindow(),
+
+                                markers: new Array(),
+                                markerMixin: {
+                                    animation: google.maps.Animation.DROP
+                                },
+
+                                accuracy: new Array(),
+                                accuracyInput: '#accuracy',
+                                accuracyMixin: {
+
+                                    strokeColor: '#42ADE0',
+                                    strokeOpacity: 0.8,
+                                    strokeWeight: 0.5,
+                                    fillColor: '#7EE2F9',
+                                    fillOpacity: 0.25
+
+                                },
+                                countedmatches: '#countedmatches',
+
+                                matching_entities: 0,
+                                currently_shown: 0
+
+                            }
+                        });
+                    },
+
+
+                    removeMarkers: function() {
+
+                        for (var marker in this.mapcontroller.markers) {
+
+                            // flush them, not hide
+                            this.mapcontroller.markers[marker].setMap(null);
+                            this.mapcontroller.accuracy[marker].setMap(null);
+
+                        }
+
+                        //this.mapcontroller.markers = new Array();
+                        //this.mapcontroller.accuracy = new Array();
+                        this.mapcontroller.markers.length = this.mapcontroller.accuracy.length = 0;
+                        this.mapcontroller.markerClusterer.clearMarkers();
+
+                        this.updateCounters("Querying...");;
+                    },
+
+
+                    addMarkers: function(markers) {
+
+                        for (var i=0; i < markers.length; i++) {
+
+                            // filter out zero-locations
+                            if (markers[i].lat && markers[i].lon) {
+
+
+                                var latLng = new google.maps.LatLng(markers[i].lat, markers[i].lon);
+                                var marker = new google.maps.Marker(
+
+                                    $.extend({
+                                        position: latLng,
+                                        markerData: markers[i],
+                                        title: "(" + markers[i].cmp
+                                                + ') User \''+ markers[i].usr
+                                                + '\' was ' + markers[i].mvs.toLowerCase() +' here at '
+                                                + moment(markers[i].ts).format('MMMM Do YYYY, HH:mm:ss')
+                                                + ' | with accuracy of '+ markers[i].acc +' meters.',
+                                        icon: '../images/map/motionize-marker-'+ this.config.icons[markers[i].res].toLowerCase()
+                                    },
+                                    this.mapcontroller.markerMixin)
+
+                                );
+                                var markerAccuracy = new google.maps.Circle(
+
+                                    $.extend({
+                                        center: latLng,
+                                        radius: markers[i].acc
+                                    },
+                                    this.mapcontroller.accuracyMixin)
+
+                                );
+                                this.mapcontroller.markers.push(marker);
+                                this.mapcontroller.accuracy.push(markerAccuracy);
+
+                                marker.setMap(map);
+                                this.MarkerAccuracyVisibility();
+
+                                var infoWindow = this.mapcontroller.infoWindow;
+                                self = this;
+                                google.maps.event.addListener(marker, 'click', function() {
+
+                                    infoWindow.setContent(
+                                        '<div id="content">'+
+                                            '<div id="siteNotice"></div>'+
+                                                '<h4><b>'+ this.markerData.usr +'</b> from <b>'+ this.markerData.cmp.toUpperCase() +'</b></h4>'+
+                                                 '<div id="bodyContent">'+
+                                                 '<p>' +
+                                                    'Seen <b>'+ this.markerData.mvs +'</b> here at <b>'+ moment(this.markerData.ts).format('MMMM Do YYYY, HH:mm:ss') +'</b>.'+
+                                                 '</p>'+
+                                                 '<p>Reason for report was <b>'+ this.markerData.res +'</b>.<br />'+
+                                                    '<em>This location report\'s accuracy is <b>'+ this.markerData.acc +'</b> meters.</em>' +
+                                                 '</p>'+
+                                            '</div>'+
+                                        '</div>');
+                                    infoWindow.open(map, this);
+
+                                });
+
+                            }else console.log("No Location data. Filtered.")
+
+                        }
+
+                        // if markers, center viewport on them
+                        if ( this.mapcontroller.markers.length ) {
+
+                            this.mapcontroller.markerClusterer.addMarkers(this.mapcontroller.markers);
+                            this.AutoCenterMarkers();
+
+                        }
+
+                    },
+
+
+                    receiveMarkers: function(responseobject) {
+                        /* abstraction and control layer */
+
+                        //alert(JSON.stringify(responseobject)); //show current response packet
+                        this.updateCounters(responseobject.length);
+                        this.addMarkers(responseobject);
+
+                    },
+
+
+                    MarkerAccuracyVisibility: function(e) {
+                        /* if accuracy toggle is on, show markers. Otherwise, hide. Default: on .*/
+
+                        var bool = $(this.mapcontroller.accuracyInput).is(':checked');
+
+                        for (var i = 0; i < this.mapcontroller.accuracy.length; i++)
+                            this.mapcontroller.accuracy[i].setMap(bool ? map : null);
+
+                    },
+
+
+                    AutoCenterMarkers: function() {
+
+                        //  Create a new viewpoint bound
+                        var bounds = new google.maps.LatLngBounds();
+
+                        //  Go through each...
+                        $.each(this.mapcontroller.markers, function (index, marker) { bounds.extend(marker.position) });
+
+                        //  Fit these bounds to the map
+                        map.fitBounds(bounds);
+
+                    },
+
+
+                    updateCounters: function(current_batch) {
+
+                        if (typeof current_batch == "number") {
+
+                            this.mapcontroller.currently_shown += current_batch;
+                            $(this.mapcontroller.countedmatches).text(this.mapcontroller.currently_shown +' / '+ this.mapcontroller.matching_entities);
+
+                        }else {
+                            this.mapcontroller.currently_shown = this.mapcontroller.matching_entities = 0;
+                            $(this.mapcontroller.countedmatches).text((typeof current_batch == "string") ? current_batch : "No matches");
+                        }
+
+                    }
+
+                }
+
+            })(jQuery);
+
+            /* communication layer */
+            var MotionizeSocket = {
+
+
+                initSocket: function(token) {
+
+                    var channel = new goog.appengine.Channel(token);
+                    var socket = channel.open();
+
+                    var self = this;
+
+                    socket.onopen = function() {
+                        self.initiateCommunication({ limit: MotionizeMap.config.query_limit });
+                    };
+
+                    socket.onmessage = this.newMessage;
+                    socket.onerror = function(){ /* alert("Communication error") */ };
+                    socket.onclose = function(){ /* alert("Connection closed by remote server") */ };
+
+                },
+
+
+                initiateCommunication: function(path, datadict) {
+                    /*
+                     * Sends serialized object by GET or POST to a path via XmlHttpRequest (async)
+                     * GET or POST method is expected to be provided in dictionary.
+                     * If path is different from current, you have to provide it (not as part of datadict)
+                     */
+                    if ( !this.initiateCommunication.arguments.length || this.initiateCommunication.arguments.length > 2) {
+                        alert('Incorrect arguments.');
+                        return;
+                    }
+
+                    else if ( this.initiateCommunication.arguments.length == 1 ) {
+                        datadict = path;
+                        path = window.location.href;
+                    }
+
+                    var xhr = new XMLHttpRequest();
+                    var method = datadict.hasOwnProperty('method') && datadict.method.toUpperCase() || 'POST';
+                    delete datadict.method;
+
+                    var urlEncodedData = this.serializeObject(datadict);
+
+                    // querystring already present
+                    if ( method == 'GET' ) {
+                        var questionmark = new RegExp("\\?");
+                        path.concat((questionmark.test(path) ? "&" : "?") + urlEncodedData);
+                    }
+
+                    xhr.open(method, path);
+                    xhr.setRequestHeader('Content-type', 'application/x-www-form-urlencoded');
+                    xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+                    xhr.send(method == 'POST' && urlEncodedData || null);
+
+                },
+
+
+                sendForm: function(form) {
+                    /* Default behavior for submitting the form data to the server */
+
+                    var formdata = new FormData(form);
+                    formdata.append('timestampFrom', document.getElementById('datetimepicker_from_input').value);
+                    formdata.append('timestampTo', document.getElementById('datetimepicker_to_input').value);
+
+                    var xhr = new XMLHttpRequest();
+                    xhr.open('POST', window.location.href, true);
+                    xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+                    xhr.send(formdata);
+
+                },
+
+
+                newMessage: function(event) {
+
+                    var response = JSON.parse(event.data);
+
+                    if ( response.hasOwnProperty('messages') ) {
+
+                        if ( response.messages.hasOwnProperty('matching_entities') ) {// only once
+                            MotionizeMap.mapcontroller.matching_entities = response.messages.matching_entities;
+
+                            response.messages.matching_entities === +0 && MotionizeMap.updateCounters();
+
+
+                        }
+                        // filter debug info
+                        console.log(JSON.stringify(response.messages));
+
+                    }
+
+                    if ( response.hasOwnProperty('map_data') && response.map_data.length ) MotionizeMap.receiveMarkers(response.map_data);
+
+                },
+
+
+                serializeObject: function(dictionary) {
+
+                    var pairs = [];
+                    for (var prop in dictionary) {
+
+                        // metadata -> ignore
+                        if ( !dictionary.hasOwnProperty(prop) ) {
+                            continue;
+                        }
+
+                        // nested object -> recursion
+                        if (Object.prototype.toString.call(dictionary[prop]) === '[object Object]') {
+
+                            pairs.push( this.serializeObject(dictionary[prop]) );
+                            continue;
+
+                        }
+                        pairs.push(prop + '=' + encodeURIComponent(dictionary[prop]));
+                    }
+
+                    return pairs.join('&');
+
+                }
+
+
+            }
+
+            document.addEventListener("DOMContentLoaded", function() {
+
+                // map --- stateless ---
+                MotionizeMap.init( { token:'{{ token }}' } );
+
+
+                // communication --- stateless ---
+                var form_submit = document.getElementById('submit');
+                form_submit.addEventListener("click", function(event) {
+                    MotionizeMap.removeMarkers();
+                    MotionizeSocket.sendForm(document.forms.namedItem('MotionizeMapForm'));
+                    event.preventDefault();
+                    return false;
+
+                }, true);
+
+
+                // datetimepickers
+                $('#datetimepicker_from').datetimepicker();
+                $('#datetimepicker_to').datetimepicker();
+
+                $('#datetimepicker_from').on('change.dp',function (e) { $('#datetimepicker_to').data('DateTimePicker').setStartDate(e.date) });
+                $('#datetimepicker_to').on('change.dp',function (e) { $('#datetimepicker_from').data('DateTimePicker').setEndDate(e.date) });
+
+
+                // checkboxes
+                var checkboxes = $('input[name^=eventtype]').filter(function() { return this.id.match(/\d/);});
+                checkboxes.on('change', function() {
+                    $('#eventtype-all').removeAttr('checked').checked=false;
+                });
+                $('#eventtype-all').on('change', function() {
+                    $.map(checkboxes, function(elem) {
+                        $(elem).removeAttr('checked').checked=false;
+                    });
+                });
+
+                $('#accuracy').on('change', function(e){ MotionizeMap.MarkerAccuracyVisibility(e) });
+            });
+        </script>
+    </body>
+</html>

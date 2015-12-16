@@ -11,8 +11,8 @@ from google.appengine.ext import blobstore
 IL_OFFSET = timedelta(hours=3)
 
 # Avoid replicating this all over the place
-PARKO_TIME_FMT = '%Y-%m-%d %H:%M:%S'
-PARKO_TIME_FMT_FILEFRIENDLY = '%Y_%m_%d_%H_%M_%S'
+PARKING_TIME_FMT = '%Y-%m-%d %H:%M:%S'
+PARKING_TIME_FMT_FILEFRIENDLY = '%Y_%m_%d_%H_%M_%S'
 
 
 class Client(db.Model):

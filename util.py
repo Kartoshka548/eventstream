@@ -93,8 +93,8 @@ tempuser = lambda user, date: ''.join(char if i % 5 else "-"
 
 ######### SQS QUEUE ###########
 SQS_Report = namedtuple('Report', ['id','content'])
-AWS_ACCESS_KEY = 'AKIAJJUHUNK7ACIHNYVA'
-AWS_SECRET_KEY = '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'
+AWS_ACCESS_KEY = ''
+AWS_SECRET_KEY = ''
 
 HTTP_CODES = {
     'CREATED' : 201,
