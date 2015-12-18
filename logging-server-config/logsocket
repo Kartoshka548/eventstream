@@ -1,0 +1,23 @@
+#! /bin/sh
+# /etc/init.d/logsocket
+
+PYTHONSCRIPT='logsocket.py'
+
+case "$1" in
+  start)
+    echo "Starting ${PYTHONSCRIPT}"
+    # run application you want to start
+    python /usr/local/sbin/${PYTHONSCRIPT} &
+    ;;
+  stop)
+    echo "Stopping ${PYTHONSCRIPT}"
+    # kill application you want to stop
+    ps -ef | grep ${PYTHONSCRIPT} | grep -v grep | awk '{print $2}' | xargs kill -9
+    ;;
+  *)
+    echo "Usage: /etc/init.d/${PYTHONSCRIPT} {start|stop}"
+    exit 1
+    ;;
+esac
+ 
+exit 0

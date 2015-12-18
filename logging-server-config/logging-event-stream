@@ -1,0 +1,26 @@
+/home/ubuntu/reports/stream.log.20* {
+    su ubuntu ubuntu
+    missingok
+    notifempty
+    nocompress
+    nomail
+    noolddir
+    rotate 1
+    maxage 2
+    copytruncate
+    sharedscripts
+    postrotate
+	BUCKET=logging-event-stream
+        /usr/bin/s3cmd --mime-type=TEXT/PLAIN put /home/ubuntu/reports/stream.log.20* s3://${BUCKET}/
+    endscript
+}
+
+/home/ubuntu/dev/stream.log.20* {
+    su ubuntu ubuntu
+    rotate 12*14
+    missingok
+    notifempty
+    nocompress
+    nomail
+    noolddir
+}
